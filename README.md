@@ -1,7 +1,7 @@
 # Autonomous Drone Navigation
 
 ## Overview
-This project was developed as part of the course "CS 666." The aim is to create an autonomous drone navigation system capable of maneuvering through a simulated environment with obstacles. The primary objectives are to achieve stable flight and implement efficient path planning algorithms for navigation in complex arenas.
+This project was developed as part of the course "CS 666." The aim is to create an autonomous drone navigation capable of maneuvering through a simulated environment with obstacles. The primary objectives are to achieve stable flight and implement efficient path planning algorithms for navigation in complex arenas.
 
 ## Key Components and Methodology
 
