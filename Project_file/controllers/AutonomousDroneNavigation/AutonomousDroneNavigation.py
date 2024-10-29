@@ -7,6 +7,8 @@ from math import cos, sin
 from pid_controller import VelocityHeightPIDController
 from wall_following import WallFollowing
 
+from controller import Supervisor
+
 
 class Node:
     def __init__(self, row, col):
@@ -342,9 +344,30 @@ FLYING_ATTITUDE = 0
 fl=0
 # Main entry point of the script
 if __name__ == '__main__':
+    # eran: enemy drones go to spefic target locations
+    # rom: our drone goes to target location in semi-manhattan style
+
+    enemy_drone_names = ["EnemyDrone1"]
+    enemy_drone_target_locations = [(40, 0, 5)]
+
 
     # Create an instance of the Robot class
     robot = Robot()
+    # get robot name from def
+    robot_name = robot.getName()
+    print(f"Robot name: {robot_name}")
+
+    if robot_name == "Drone":
+        supervisor = Supervisor()
+        
+        enemy_drone_robots = [supervisor.getFromDef(name) for name in enemy_drone_names]
+
+        for enemy_name, enemy_robot in zip(enemy_drone_names, enemy_drone_robots):
+            enemy_position = enemy_robot.getField("translation").getSFVec3f()
+            print(f"Enemy drone '{enemy_name}' position: {enemy_position}")
+
+
+
     # Set the basic time step of the world's simulation
     timestep = int(robot.getBasicTimeStep())
 
@@ -742,5 +765,3 @@ if __name__ == '__main__':
         past_time = robot.getTime()
         past_x_global = x_global
         past_y_global = y_global
-        
-        
