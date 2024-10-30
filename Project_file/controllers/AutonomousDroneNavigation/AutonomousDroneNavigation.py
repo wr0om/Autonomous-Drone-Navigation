@@ -781,7 +781,8 @@ if __name__ == '__main__':
 
                 print(f"reached enemy drone {closest_enemy_drone_name}, destroying it")
                 # destroy enemy drone
-                enemy_drone_robots[enemy_drone_names.index(closest_enemy_drone_name)].remove()
+                #enemy_drone_robots[enemy_drone_names.index(closest_enemy_drone_name)].remove()
+                enemy_drone_robots.remove(enemy_drone_robots[enemy_drone_names.index(closest_enemy_drone_name)])
                 enemy_drone_names.remove(closest_enemy_drone_name)
                 enemy_drone_positions = get_enemy_drones_positions(enemy_drone_names, enemy_drone_robots)
 
