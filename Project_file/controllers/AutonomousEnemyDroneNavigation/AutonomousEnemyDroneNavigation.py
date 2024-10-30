@@ -467,7 +467,9 @@ if __name__ == '__main__':
     translation_field.setSFVec3f(taget_enemy_location[:2] + [0])
     print(f"Robot {robot_name} set to {taget_enemy_location[:2]}")
     # TODO: change
-    inplace = True#False
+    inplace = False
+    hit = False
+    epsilon = 1
     # Main control loop of the robot
     while robot.step(timestep) != -1:
         
@@ -702,8 +704,23 @@ if __name__ == '__main__':
         else:
             yd = num_to_range(angle, 0, -180, 0, -3)
         
+
+        # find if the robot is hit
+        enemyDroneLoction = gps.getValues()
+        # get drone node
+        drone_node = supervisor.getFromDef('Drone')
+        # Get the translation field from the robot's node
+        droneLocation = drone_node.getField("translation").getSFVec3f()
+        # check if the drone is hit
+        dist = math.sqrt((droneLocation[0] - enemyDroneLoction[0])**2 +\
+                          (droneLocation[1] - enemyDroneLoction[1])**2 +\
+                            (droneLocation[2] - enemyDroneLoction[2])**2)
+        if dist < epsilon:
+            hit = True
+            print(f"{robot_name} hit by drone")
+
         # Check if the goal has been reached to initiate landing
-        if flag_goal == 1 and inplace == True:
+        if flag_goal == 1 and inplace == True and hit == False:
             # Uncomment below to print the obstacle coordinates
             # Set the current position as the target for landing
             x = x_global
@@ -732,7 +749,7 @@ if __name__ == '__main__':
             past_y_global = y_global
         
             continue  # Continue to the next iteration of the loop
-        if flag_goal == 1 and inplace == False:
+        if flag_goal == 1 and inplace == False and hit == False:
             did_not_find_place = True
             while did_not_find_place:
                 goal_x_a, goal_y_a = taget_enemy_location[:2]
@@ -775,6 +792,37 @@ if __name__ == '__main__':
             x = dd[1]
             y = ff[1]
             flag_goal = 0
+        if hit == True:
+            # land and stop
+            # Gradually decrease the altitude for landing
+            if maintain_altitude > 0:
+                maintain_altitude -= 0.001
+        
+            # Set the current position as the target for landing
+            x = x_global
+            y = y_global
+        
+            # Call the landing function to get the desired states for landing
+            (height_desired, sideways_desired, yaw_desired, forward_desired, fl, stop,) = land(
+                maintain_altitude, yd2, fl, stop, altitude, x_global, y_global, x, y,
+                height_desired, sideways_desired, yaw_desired, forward_desired)
+        
+            # Use the PID controller to calculate motor power for landing
+            motor_power = PID_crazyflie.compute_pid(dt, forward_desired, sideways_desired,
+                                            yaw_desired, height_desired,
+                                            roll, pitch, yaw_rate,
+                                            altitude, v_x, v_y)
+        
+            # Set motor velocities based on the calculated motor power
+            m1_motor.setVelocity(-motor_power[0])
+            m2_motor.setVelocity(motor_power[1])
+            m3_motor.setVelocity(-motor_power[2])
+            m4_motor.setVelocity(motor_power[3])
+        
+            # Update the past time and global position for the next iteration
+            past_time = robot.getTime()
+            past_x_global = x_global
+            past_y_global = y_global
 
 
 

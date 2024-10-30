@@ -397,8 +397,7 @@ if __name__ == '__main__':
     # eran: enemy drones go to spefic target locations
     # rom: our drone goes to target location in semi-manhattan style
 
-    enemy_drone_names = ["EnemyDrone1"]
-    enemy_drone_target_locations = [(40, 0, 5)]
+    enemy_drone_names = ["EnemyDrone1", "EnemyDrone2", "EnemyDrone3"]
 
     # Create an instance of the Robot class
     robot = Robot()
@@ -775,6 +774,7 @@ if __name__ == '__main__':
             #print(f"our node: {our_node}, closest enemy node: {closest_enemy_node}")
             x, y, maintain_altitude = enemy_drone_positions[closest_enemy_drone_name][0], enemy_drone_positions[closest_enemy_drone_name][1], enemy_drone_positions[closest_enemy_drone_name][2]
             
+
             # if reached goal enemy drone
             if any([distance <= epsilon for distance in distances_from_enemy_drones]):
                 # # TODO: add targeting to new enemy drone using Ben's planner
@@ -811,12 +811,18 @@ if __name__ == '__main__':
                 y = ff[1]
 
                 flag_goal = 0
+                flag_obs = 0
+                stop = 0
                 # Uncomment below to print the next target coordinates
                 # print(f"{x} x y {y}")
                 continue
 
+        if maintain_altitude + 0.5 < altitude and flag_goal == 1:
+            (height_desired, sideways_desired, yaw_desired, forward_desired, fl, stop,) = land(
+            maintain_altitude, yd2, fl, stop, altitude, x_global, y_global, x, y,
+            height_desired, sideways_desired, yaw_desired, forward_desired)
         # Check if the robot didnt detected any obstacle or also didnt reached the goal
-        if stop == 0:
+        elif stop == 0:
             # Call the fly function to get the desired states for flying
             (height_desired, sideways_desired, yaw_desired, forward_desired, fl, stop,) = fly(
                 maintain_altitude, yd2, fl, stop, altitude, x_global, y_global, x, y,
