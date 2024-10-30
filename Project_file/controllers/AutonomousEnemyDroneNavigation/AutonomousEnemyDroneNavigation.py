@@ -1,4 +1,4 @@
-
+import random
 import math
 import heapq
 import itertools  # For tie-breaking
@@ -8,9 +8,6 @@ from pid_controller import VelocityHeightPIDController
 from wall_following import WallFollowing
 
 from controller import Supervisor
-from drones_simple_planning import DronePathFinder
-import time
-
 
 
 class Node:
@@ -73,6 +70,8 @@ class Node:
 
 
 # Initialize a 2D array of Node objects
+
+
 
 
 def add_obstacle(node_map, obstacle_coordinates, obstacle_nodes):
@@ -340,55 +339,6 @@ def search_node(x_required_to_start, y_required_to_start):
 # rows, cols = n, n
 # node = [[Node(i, j) for j in range(cols)] for i in range(rows)]
 
-def get_enemy_drones_positions(enemy_drone_names, enemy_drone_robots):
-    """
-    Get the positions of enemy drones in the environment.
-
-    Parameters:
-    enemy_drone_names: List of names of enemy drones.
-    enemy_drone_robots: List of robot objects representing enemy drones.
-
-    Returns:
-    A list of tuples containing the positions of enemy drones.
-    """
-    enemy_drone_positions = dict()
-    for enemy_name, enemy_robot in zip(enemy_drone_names, enemy_drone_robots):
-        enemy_position = enemy_robot.getField("translation").getSFVec3f()
-        enemy_drone_positions[enemy_name] = enemy_position
-    return enemy_drone_positions
-
-
-def set_path(current_x, current_y, goal_x, goal_y, node_map, stop):
-    # Find the node in the node map corresponding to the robot's current global position
-    [i, j] = search_node(current_x, current_y)
-    print(f"row ={i} col = {j}")
-    # Set this node as the new start node for path planning
-    start_node = node_map[i][j]
-
-    # Find the node in the node map corresponding to the goal position
-    [i, j] = search_node(goal_x, goal_y)
-    print(f"row ={i} col = {j}")
-    # Set this node as the goal node for path planning
-    goal_node = node_map[i][j]
-
-    # Perform A* path planning from the new start node to the goal node
-    path = astar_path_planning(node_map, start_node, goal_node)
-
-    # Initialize arrays to store x and y coordinates of the new path
-    dd = []
-    ff = []
-
-    # If a path is found, extract and store the x and y coordinates
-    if path is not None:
-        for i in range(len(path)):
-            dd.append(path[i][0])  # Extract and store the x-coordinate
-            ff.append(path[i][1])  # Extract and store the y-coordinate
-    else:
-        # If no path is found, set the stop flag
-        stop = 0
-
-    return dd, ff, stop
-
 
 FLYING_ATTITUDE = 0
 fl=0
@@ -397,22 +347,14 @@ if __name__ == '__main__':
     # eran: enemy drones go to spefic target locations
     # rom: our drone goes to target location in semi-manhattan style
 
-    enemy_drone_names = ["EnemyDrone1"]
-    enemy_drone_target_locations = [(40, 0, 5)]
+    enemy_drone_target_locations = [[30, 6, 7],[5, 15, 5],[5, 40, 5],[40, 40, 5]]
 
     # Create an instance of the Robot class
     robot = Robot()
     # get robot name from def
     robot_name = robot.getName()
     print(f"Robot name: {robot_name}")
-
-    if robot_name == "Drone":
-        # sleep for 3 seconds to allow enemy drones to reach their target locations
-        supervisor = Supervisor()
-        enemy_drone_robots = [supervisor.getFromDef(name) for name in enemy_drone_names]
-        enemy_drone_positions = get_enemy_drones_positions(enemy_drone_names, enemy_drone_robots)
-        print(f"Enemy drone positions: {enemy_drone_positions}")
-
+    taget_enemy_location = enemy_drone_target_locations[int(robot_name[-1]) - 1]
 
     # Set the basic time step of the world's simulation
     timestep = int(robot.getBasicTimeStep())
@@ -482,9 +424,13 @@ if __name__ == '__main__':
     height_desired = FLYING_ATTITUDE
     yaw_desired = 0
     
+
+    
     # Initialize wall following behavior with specified parameters
     wall_following = WallFollowing(angle_value_buffer=0.01, reference_distance_from_wall=0.5,
                                    max_forward_speed=0.3, init_state=WallFollowing.StateWallFollowing.FORWARD)
+
+
 
     # Set the mode of operation (autonomous or manual)
     autonomous_mode = True  # Change to False for manual control
@@ -514,84 +460,21 @@ if __name__ == '__main__':
     def is_obstacle(node):
         return (node.row, node.col) in obstacle_nodes
     
-    # Goal and start coordinates
-    goal_x = -5
-    goal_y = 42
-    start_x = 30
-    start_y = -10
-    maintain_altitude = 1
-    
-    goal_z = 5
-    epsilon = 1
-
-    # TODO: goal should be set using Ben's planner AFTER the enemy drone reached their starting positions
-    if robot_name == "Drone":
-        def coords_to_string(coords):
-            return f"{coords[0]},{coords[1]},{coords[2]}"
-        
-        all_drones_locations = [coords_to_string([start_x, start_y, maintain_altitude])] + \
-            [coords_to_string(enemy_drone_positions[enemy_name]) for enemy_name in enemy_drone_names]
-        print(f"all_drones_locations: {all_drones_locations}")
-        
-        path_finder = DronePathFinder(all_drones_locations)
-        planned_path = path_finder.solve()
-        print(f"planned_path: {planned_path}")
-
-        if planned_path:
-            goal_x, goal_y, goal_z = path_finder.get_next_coords()
-            print(f"goal_x: {goal_x}, goal_y: {goal_y}, goal_z: {goal_z}")
-
-
-    # Find the start node
-    [i, j] = search_node(start_x, start_y)
-    print(f"row ={i} col = {j}")
-    start_node = node_map[i][j]
-    
-    # Find the goal node
-    [i, j] = search_node(goal_x, goal_y)
-    print(f"row ={i} col = {j}")
-    goal_node = node_map[i][j]
-    
-    # Perform A* path planning
-    path = astar_path_planning(node_map, start_node, goal_node)
-    
-    # Check if a path is found
-    if path:
-        print("Planned Path (GPS Coordinates):")
-        # Uncomment below to print each node in the path
-        # for node in path:
-        #     print(node)
-    else:
-        # Default path if no path is found
-        print("No path found.")
-    
-    # Initialize arrays to store x and y coordinates of the path
-    dd = []
-    ff = []
-    
-    # Extract coordinates from the path if it exists
-    if path is not None:
-        for i in range(len(path)):
-            dd.append(path[i][0])  # Extract and store the x-coordinate
-            ff.append(path[i][1])  # Extract and store the y-coordinate
-    else:
-        stop = 0
-    
-    # Initialize variables for the first coordinates in the path
-    o = 0
-    x = dd[0]
-    y = ff[0]
-    # Flags to indicate the presence of obstacles and the goal
-    flag_obs = 0
-    flag_goal = 0
-    
-    step = 0
+    supervisor = Supervisor()
+    robot_node = supervisor.getFromDef(robot_name)
+    # Get the translation field from the robot's node
+    translation_field = robot_node.getField("translation")
+    translation_field.setSFVec3f(taget_enemy_location[:2] + [0])
+    print(f"Robot {robot_name} set to {taget_enemy_location[:2]}")
+    # TODO: change
+    inplace = True#False
     # Main control loop of the robot
     while robot.step(timestep) != -1:
-        step += 1
-
+        
         # Calculate the time difference since the last loop iteration
         dt = robot.getTime() - past_time
+        # Dictionary to store the current state of the robot
+        actual_state = {}
     
         # Initialize the global position and time during the first iteration
         if first_time:
@@ -599,6 +482,59 @@ if __name__ == '__main__':
             past_y_global = gps.getValues()[1]
             past_time = robot.getTime()
             first_time = False
+            # Goal and start coordinates
+            goal_x = -5
+            goal_y = 42
+            start_x = 30
+            start_y = -10
+            maintain_altitude = 1
+            goal_x, goal_y, maintain_altitude = taget_enemy_location
+            start_x, start_y = gps.getValues()[0], gps.getValues()[1]
+            print(f'start: {start_x} , {start_y}')
+            
+            print(goal_x, goal_y, maintain_altitude)
+            # Find the start node
+            [i, j] = search_node(start_x, start_y)
+            print(f"row ={i} col = {j}")
+            start_node = node_map[i][j]
+            
+            # Find the goal node
+            [i, j] = search_node(goal_x, goal_y)
+            print(f"row ={i} col = {j}")
+            goal_node = node_map[i][j]
+            
+            # Perform A* path planning
+            path = astar_path_planning(node_map, start_node, goal_node)
+            
+            # Check if a path is found
+            if path:
+                print("Planned Path (GPS Coordinates):")
+                # Uncomment below to print each node in the path
+                # for node in path:
+                #     print(node)
+            else:
+                # Default path if no path is found
+                print("No path found.")
+            
+            # Initialize arrays to store x and y coordinates of the path
+            dd = []
+            ff = []
+            
+            # Extract coordinates from the path if it exists
+            if path is not None:
+                for i in range(len(path)):
+                    dd.append(path[i][0])  # Extract and store the x-coordinate
+                    ff.append(path[i][1])  # Extract and store the y-coordinate
+            else:
+                stop = 0
+            
+            # Initialize variables for the first coordinates in the path
+            o = 0
+            x = dd[0]
+            y = ff[0]
+            # Flags to indicate the presence of obstacles and the goal
+            flag_obs = 0
+            flag_goal = 0
     
         # Get sensor data
         # Roll, pitch, and yaw from the Inertial Measurement Unit (IMU)
@@ -629,36 +565,11 @@ if __name__ == '__main__':
         v_y = -v_x_global * sin_yaw + v_y_global * cos_yaw
                     
         # Initialize desired state variables
+        desired_state = [0, 0, 0, 0]
         forward_desired = 0
         sideways_desired = 0
         yaw_desired = 0
         height_diff_desired = 0
-
-
-         # replanning every 1000 steps
-        if step % 1000 == 1 and flag_goal == 0:
-            flag_goal = 0
-            enemy_drone_positions = get_enemy_drones_positions(enemy_drone_names, enemy_drone_robots)
-            all_drones_locations = [coords_to_string([x_global, y_global, maintain_altitude])] + \
-            [coords_to_string(enemy_drone_positions[enemy_name]) for enemy_name in enemy_drone_names]
-            
-            path_finder = DronePathFinder(all_drones_locations)
-            planned_path = path_finder.solve()
-
-            if planned_path:
-                goal_x, goal_y, goal_z = path_finder.get_next_coords()
-
-            print(f"replanned path to {goal_x}, {goal_y}, {goal_z}")
-            
-            dd, ff, stop = set_path(x_global, y_global, goal_x, goal_y, node_map, stop)
-            # Set the first waypoint from the new path as the next target
-            o = 1
-            try:
-                x = dd[o]
-                y = ff[o]
-            except:
-                print(f"HARA!! planned_path={planned_path}, dd={dd}, ff={ff}, o={o}")
-
             
         # Threshold distance for obstacle detection
         hit_point = 0.3
@@ -718,38 +629,68 @@ if __name__ == '__main__':
 
         
         # Check if an obstacle was previously detected
-        if flag_obs == 1:
+        if (flag_obs == 1) and  flag_goal!=1:
             # Reset the obstacle detection flag
             flag_obs = 0
-
-            dd, ff, stop = set_path(x_global, y_global, goal_x, goal_y, node_map, stop)
+        
+            # Find the node in the node map corresponding to the robot's current global position
+            [i, j] = search_node(x_global, y_global)
+            print(f"row ={i} col = {j}")
+        
+            # Set this node as the new start node for path planning
+            start_node = node_map[i][j]
+        
+            # Find the node in the node map corresponding to the goal position
+            [i, j] = search_node(goal_x, goal_y)
+            print(f"row ={i} col = {j}")
+        
+            # Set this node as the goal node for path planning
+            goal_node = node_map[i][j]
+        
+            # Perform A* path planning from the new start node to the goal node
+            path = astar_path_planning(node_map, start_node, goal_node)
+        
+            # Initialize arrays to store x and y coordinates of the new path
+            dd = []
+            ff = []
+        
+            # If a path is found, extract and store the x and y coordinates
+            if path is not None:
+                for i in range(len(path)):
+                    dd.append(path[i][0])  # Extract and store the x-coordinate
+                    ff.append(path[i][1])  # Extract and store the y-coordinate
+            else:
+                # If no path is found, set the stop flag
+                stop = 0
         
             # Set the first waypoint from the new path as the next target
             o = 1
-            x = dd[1]
-            y = ff[1]
+            x = dd[0]
+            y = ff[0]
             # Uncomment below to print the next target coordinates
             # print(f"{x} x y {y}")
 
         # Initialize desired state and movement variables
+        desired_state = [0, 0, 0, 0]
         forward_desired = 0
         sideways_desired = 0
         yaw_desired = 0
         height_diff_desired = 0
         
-        # TODO: change
         # Check if the robot has reached the last waypoint
         if o >= len(dd) - 1:
             stop = 0
             flag_goal = 1  # Set the flag indicating the goal has been reached
         
         # If the robot has not stopped, update the next waypoint
-        if stop != 0 and flag_goal == 0 and o <= len(dd) - 1:
+        if stop != 0:
             o = o + 1
             stop = 0
             x = dd[o]  # Update the x-coordinate of the next waypoint
             y = ff[o]  # Update the y-coordinate of the next waypoint
         
+        # Update the desired height
+        height_desired += height_diff_desired * dt
         
         # Calculate the angle to the next waypoint
         angle = math.degrees(math.atan2((y - y_global), (x - x_global)))
@@ -762,60 +703,84 @@ if __name__ == '__main__':
             yd = num_to_range(angle, 0, -180, 0, -3)
         
         # Check if the goal has been reached to initiate landing
-        if flag_goal == 1:
+        if flag_goal == 1 and inplace == True:
+            # Uncomment below to print the obstacle coordinates
+            # Set the current position as the target for landing
+            x = x_global
+            y = y_global
+        
+            # Call the landing function to get the desired states for landing
+            (height_desired, sideways_desired, yaw_desired, forward_desired, fl, stop,) = land(
+                maintain_altitude, yd2, fl, stop, altitude, x_global, y_global, x, y,
+                height_desired, sideways_desired, yaw_desired, forward_desired)
+        
+            # Use the PID controller to calculate motor power for landing
+            motor_power = PID_crazyflie.compute_pid(dt, forward_desired, sideways_desired,
+                                            yaw_desired, height_desired,
+                                            roll, pitch, yaw_rate,
+                                            altitude, v_x, v_y)
+        
+            # Set motor velocities based on the calculated motor power
+            m1_motor.setVelocity(-motor_power[0])
+            m2_motor.setVelocity(motor_power[1])
+            m3_motor.setVelocity(-motor_power[2])
+            m4_motor.setVelocity(motor_power[3])
+        
+            # Update the past time and global position for the next iteration
+            past_time = robot.getTime()
+            past_x_global = x_global
+            past_y_global = y_global
+        
+            continue  # Continue to the next iteration of the loop
+        if flag_goal == 1 and inplace == False:
+            did_not_find_place = True
+            while did_not_find_place:
+                goal_x_a, goal_y_a = taget_enemy_location[:2]
+                # add normal noise and set as goal
+                goal_x_a += random.uniform(-3, 3)
+                goal_y_a += random.uniform(-3, 3)
+                goal_x, goal_y = goal_x_a, goal_y_a
 
-            enemy_drone_positions = get_enemy_drones_positions(enemy_drone_names, enemy_drone_robots)
-            distances_from_enemy_drones = [math.sqrt((x_global - enemy_drone_positions[enemy_name][0])**2 + \
-                (y_global - enemy_drone_positions[enemy_name][1])**2 + \
-                (altitude - enemy_drone_positions[enemy_name][2])**2) for enemy_name in enemy_drone_names]
-            closest_enemy_drone_name = enemy_drone_names[distances_from_enemy_drones.index(min(distances_from_enemy_drones))]
+                [i, j] = search_node(x_global, y_global)
             
-            our_node = search_node(x_global, y_global)
-            closest_enemy_node = search_node(enemy_drone_positions[closest_enemy_drone_name][0], enemy_drone_positions[closest_enemy_drone_name][1])
-            #print(f"our node: {our_node}, closest enemy node: {closest_enemy_node}")
-            x, y, maintain_altitude = enemy_drone_positions[closest_enemy_drone_name][0], enemy_drone_positions[closest_enemy_drone_name][1], enemy_drone_positions[closest_enemy_drone_name][2]
+                # Set this node as the new start node for path planning
+                start_node = node_map[i][j]
             
-            # if reached goal enemy drone
-            if any([distance <= epsilon for distance in distances_from_enemy_drones]):
-                # # TODO: add targeting to new enemy drone using Ben's planner
-
-                print(f"reached enemy drone {closest_enemy_drone_name}, destroying it")
-                # destroy enemy drone
-                enemy_drone_robots[enemy_drone_names.index(closest_enemy_drone_name)].remove()
-                enemy_drone_names.remove(closest_enemy_drone_name)
-                enemy_drone_positions = get_enemy_drones_positions(enemy_drone_names, enemy_drone_robots)
-
-                if not enemy_drone_names:
-                    print("all enemy drones destroyed, mission complete!!")
-                    break
-
-                print(f"NEW Enemy drone positions: {enemy_drone_positions}")
-
-                # replanning to new goal
-                all_drones_locations = [coords_to_string([x_global, y_global, maintain_altitude])] + \
-                [coords_to_string(enemy_drone_positions[enemy_name]) for enemy_name in enemy_drone_names]
-
-                path_finder = DronePathFinder(all_drones_locations)
-                planned_path = path_finder.solve()
-
-                if planned_path:
-                    goal_x, goal_y, goal_z = path_finder.get_next_coords()
-
-                print(f"replanned path to {goal_x}, {goal_y}, {goal_z}")
-                dd, ff, stop = set_path(x_global, y_global, goal_x, goal_y, node_map, stop)
+                # Find the node in the node map corresponding to the goal position
+                [i, j] = search_node(goal_x, goal_y)
             
-                # Set the first waypoint from the new path as the next target
-                o = 1
-                x = dd[1]
-                y = ff[1]
+                # Set this node as the goal node for path planning
+                goal_node = node_map[i][j]
+            
+                # Perform A* path planning from the new start node to the goal node
+                path = astar_path_planning(node_map, start_node, goal_node)
+                if path is not None and len(path) > 2:
+                    did_not_find_place = False
+        
+            # Initialize arrays to store x and y coordinates of the new path
+            dd = []
+            ff = []
+        
+            # If a path is found, extract and store the x and y coordinates
+            if path is not None:
+                for i in range(len(path)):
+                    dd.append(path[i][0])  # Extract and store the x-coordinate
+                    ff.append(path[i][1])  # Extract and store the y-coordinate
+            else:
+                # If no path is found, set the stop flag
+                stop = 0
+        
+            # Set the first waypoint from the new path as the next target
+            o = 1
+            x = dd[1]
+            y = ff[1]
+            flag_goal = 0
 
-                flag_goal = 0
-                # Uncomment below to print the next target coordinates
-                # print(f"{x} x y {y}")
-                continue
+
 
         # Check if the robot didnt detected any obstacle or also didnt reached the goal
         if stop == 0:
+        
             # Call the fly function to get the desired states for flying
             (height_desired, sideways_desired, yaw_desired, forward_desired, fl, stop,) = fly(
                 maintain_altitude, yd2, fl, stop, altitude, x_global, y_global, x, y,
